@@ -34,8 +34,8 @@ Before you can run this project, make sure you have the following installed:
 
 3. Run the script to generate the CSS animation:
 
-   ```console
-   $ node src/generate.mjs
+```console
+$ node src/generate.mjs
    Options:
       --version           Show version number                          [boolean]
   -i, --input             Path to input video or image folder[string] [required]
@@ -47,7 +47,7 @@ Before you can run this project, make sure you have the following installed:
                                                            [number] [default: 5]
   -f, --frameRate         Frame rate for processing       [number] [default: 30]
   -h, --help              Show help                                    [boolean]
-   ```
+```
 
    - The script will process the video, extract frames, generate gradients, and create a CSS animation based on the video’s color data.
    - The generated HTML will be output to the console, with the necessary CSS for the animation.

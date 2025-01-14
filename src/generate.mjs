@@ -120,11 +120,18 @@ class AnimationData {
     const rowPositions = Array.from({ length: animationHeight }, (_, i) => `0 ${i}px`);
     const rowSizes = Array.from({ length: animationHeight }, () => `${animationWidth}px 1px`);
 
-    const keyframes = this.frames.map((frame, idx) => {
-      const percentage = (idx / this.frames.length) * 100;
+    let lastFrameString = '';
+    const keyframes = this.frames.map((frame, index) => {
+      const percentage = (index / this.frames.length) * 100;
+      let frameString = frame.join('');
+      
+      if (frameString === lastFrameString) return '';
+      
+      lastFrameString = frameString;
       const backgroundImages = frame.map(colors => createLinearGradient(colors, 1)).join(',');
-      return `${percentage}% {background-position: var(--row-pos); background-image: ${backgroundImages};}`;
-    });
+      
+      return `${percentage}%{background-position:var(--row-pos);background-image:${backgroundImages};}`;
+    });    
 
     return `:root {--row-pos:${rowPositions.join(',')};}
       .animation {
@@ -217,10 +224,10 @@ function createLinearGradient(colorArray, widthPerColor) {
     const startPercentage = (cumulativeWidth / totalWidth) * 100;
     cumulativeWidth += count * widthPerColor;
     const endPercentage = (cumulativeWidth / totalWidth) * 100;
-    return `#${color} ${startPercentage}%, #${color} ${endPercentage}%`;
+    return `#${color} ${asPercent(startPercentage)},#${color} ${asPercent(endPercentage)}`;
   });
 
-  return `linear-gradient(to right, ${stops.join(',')})`;
+  return `linear-gradient(to right,${stops.join(',')})`;
 }
 
 /**
@@ -231,6 +238,17 @@ function createLinearGradient(colorArray, widthPerColor) {
 function minimizeHexColor(hexColor) {
   return (hexColor[0] === hexColor[1] && hexColor[2] === hexColor[3] && hexColor[4] === hexColor[5]) ? hexColor[0] + hexColor[2] + hexColor[4] : hexColor;
 }
+
+/**
+ * Minimize a CSS percentage.
+ * @param {string} pcnt - Percentage.
+ * @returns {string} - Minimized percentage.
+ */
+function asPercent(pcnt) {
+  return pcnt == 0 ? pcnt : `${pcnt}%`
+}
+
+
 
 /**
  * Generate an HTML file with the animation and save it to a specified path.
