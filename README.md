@@ -34,18 +34,23 @@ Before you can run this project, make sure you have the following installed:
 
 3. Run the script to generate the CSS animation:
 
-   ```bash
-   node src/generate.mjs > output.html
+   ```console
+   $ node src/generate.mjs
+   Options:
+      --version           Show version number                          [boolean]
+  -i, --input             Path to input video or image folder[string] [required]
+  -o, --output            Path to output HTML file
+                                             [string] [default: "./output.html"]
+  -t, --tempDir           Temporary directory for frames
+                                              [string] [default: "./tempFrames"]
+  -c, --concurrentFrames  Max concurrent frame processing tasks
+                                                           [number] [default: 5]
+  -f, --frameRate         Frame rate for processing       [number] [default: 30]
+  -h, --help              Show help                                    [boolean]
    ```
 
    - The script will process the video, extract frames, generate gradients, and create a CSS animation based on the video’s color data.
    - The generated HTML will be output to the console, with the necessary CSS for the animation.
-
-## Customization
-
-- You can adjust the number of concurrent processes for frame processing by changing the `maxConcurrentProcesses` constant in the code.
-- Modify the `videoPath` variable to specify a custom video file.
-- Adjust the `tempDir` constant to change where the frames are stored temporarily.
 
 ## License
 
