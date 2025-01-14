@@ -1,11 +1,11 @@
-import ffmpeg from 'fluent-ffmpeg';
-import sharp from 'sharp';
-import fs from 'fs';
-import pLimit from 'p-limit';
-import path from 'path';
-import yargs from 'yargs';
-import { hideBin } from 'yargs/helpers';
-import cliProgress from 'cli-progress';
+import ffmpeg from "fluent-ffmpeg";
+import sharp from "sharp";
+import fs from "fs";
+import pLimit from "p-limit";
+import path from "path";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
+import cliProgress from "cli-progress";
 
 /**
  * Main function to process video or image folder and generate animated HTML.
@@ -18,22 +18,27 @@ import cliProgress from 'cli-progress';
  */
 async function main({
   inputPath,
-  outputHTMLPath = './output.html',
-  tempFrameDir = './tempFrames',
+  outputHTMLPath = "./output.html",
+  tempFrameDir = "./tempFrames",
   maxConcurrentFrames = 5,
-  frameRate = 30
+  frameRate = 30,
 }) {
   if (!fs.existsSync(inputPath)) {
-    console.error('Input path does not exist.');
+    console.error("Input path does not exist.");
     return;
   }
 
-  let videoWidth, videoHeight, videoDuration, deleteAfter = false;
+  let videoWidth,
+    videoHeight,
+    videoDuration,
+    deleteAfter = false;
 
   if (fs.lstatSync(inputPath).isDirectory()) {
-    const imageFiles = fs.readdirSync(inputPath).filter(file => file.endsWith('.png'));
+    const imageFiles = fs
+      .readdirSync(inputPath)
+      .filter((file) => file.endsWith(".png"));
     if (imageFiles.length === 0) {
-      console.error('No PNG files found in the folder.');
+      console.error("No PNG files found in the folder.");
       return;
     }
     const sampleImage = path.join(inputPath, imageFiles[0]);
@@ -45,13 +50,28 @@ async function main({
   } else {
     deleteAfter = true;
     fs.existsSync(tempFrameDir) || fs.mkdirSync(tempFrameDir);
-    ({ duration: videoDuration, width: videoWidth, height: videoHeight } = await getVideoDetails(inputPath));
+    ({
+      duration: videoDuration,
+      width: videoWidth,
+      height: videoHeight,
+    } = await getVideoDetails(inputPath));
     await extractVideoFrames(inputPath, tempFrameDir);
   }
 
-  const animationData = await processVideoFrames(tempFrameDir, maxConcurrentFrames, videoWidth, videoHeight);
-  await createHTML(animationData, videoWidth, videoHeight, videoDuration, outputHTMLPath);
-  console.log('Processing completed.');
+  const animationData = await processVideoFrames(
+    tempFrameDir,
+    maxConcurrentFrames,
+    videoWidth,
+    videoHeight
+  );
+  await createHTML(
+    animationData,
+    videoWidth,
+    videoHeight,
+    videoDuration,
+    outputHTMLPath
+  );
+  console.log("Processing completed.");
   deleteAfter && fs.rmSync(tempFrameDir, { recursive: true });
 }
 
@@ -64,10 +84,12 @@ async function getVideoDetails(videoFilePath) {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(videoFilePath, (err, metadata) => {
       if (err) {
-        reject('Error retrieving video details');
+        reject("Error retrieving video details");
       } else {
         const { duration } = metadata.format;
-        const { width, height } = metadata.streams.find(stream => stream.codec_type === 'video') || {};
+        const { width, height } =
+          metadata.streams.find((stream) => stream.codec_type === "video") ||
+          {};
         resolve({ duration, width, height });
       }
     });
@@ -83,9 +105,9 @@ async function getVideoDetails(videoFilePath) {
 async function extractVideoFrames(videoFilePath, frameOutputDir) {
   return new Promise((resolve, reject) => {
     ffmpeg(videoFilePath)
-      .output(path.join(frameOutputDir, 'frame-%04d.png'))
-      .on('end', resolve)
-      .on('error', reject)
+      .output(path.join(frameOutputDir, "frame-%04d.png"))
+      .on("end", resolve)
+      .on("error", reject)
       .run();
   });
 }
@@ -119,31 +141,39 @@ class AnimationData {
    * @returns {string} - Generated CSS string.
    */
   generateCSS(animationWidth, animationHeight, animationDuration) {
-    const rowPositions = Array.from({ length: animationHeight }, (_, i) => `0 ${i}px`);
-    const rowSizes = Array.from({ length: animationHeight }, () => `${animationWidth}px 1px`);
+    const rowPositions = Array.from(
+      { length: animationHeight },
+      (_, i) => `0 ${i}px`
+    );
+    const rowSizes = Array.from(
+      { length: animationHeight },
+      () => `${animationWidth}px 1px`
+    );
 
-    let lastFrameString = '';
+    let lastFrameString = "";
     const keyframes = this.frames.map((frame, index) => {
       const percentage = (index / this.frames.length) * 100;
-      let frameString = frame.join('');
-      
-      if (frameString === lastFrameString) return '';
-      
-      lastFrameString = frameString;
-      const backgroundImages = frame.map(colors => createLinearGradient(colors, 1)).join(',');
-      
-      return `${percentage}%{background-image:${backgroundImages};background-position:var(--row-pos)}`;
-    });    
+      let frameString = frame.join("");
 
-    return `:root {--row-pos:${rowPositions.join(',')};}
-      .animation {
-        height: ${animationHeight}px;
-        width: ${animationWidth}px;
-        animation: animation-frames ${animationDuration}s infinite;
-        background-repeat: no-repeat;
-        background-size: ${rowSizes.join(',')};
-      }
-      @keyframes animation-frames{${keyframes.join('')}}`;
+      if (frameString === lastFrameString) return "";
+
+      lastFrameString = frameString;
+      const backgroundImages = frame
+        .map((colors) => createLinearGradient(colors, 1))
+        .join(",");
+
+      return `${percentage}%{--a:${backgroundImages}}`;
+    });
+
+    return (
+      `.animation{height:${animationHeight}px;width:${animationWidth}px;` +
+      `animation:animation-frames ${animationDuration}s infinite;` +
+      `background-repeat:no-repeat;background-image:var(--a);` +
+      `background-size:${rowSizes.join(
+        ","
+      )};background-position:${rowPositions.join(",")}` +
+      `}@keyframes animation-frames{${keyframes.join("")}}`
+    );
   }
 }
 
@@ -157,20 +187,32 @@ class AnimationData {
 async function processVideoFrames(frameDir, maxConcurrentFrames, frameWidth) {
   const animationData = new AnimationData();
   const limitConcurrency = pLimit(maxConcurrentFrames);
-  const frameFiles = fs.readdirSync(frameDir).filter(file => file.endsWith('.png'));
+  const frameFiles = fs
+    .readdirSync(frameDir)
+    .filter((file) => file.endsWith(".png"));
 
-  const frameProgressBar = new cliProgress.SingleBar({
-    format: 'Processing frames [{bar}] {percentage}% | {value}/{total} frames',
-    barCompleteChar: '\u2588',
-    barIncompleteChar: '\u2591',
-    hideCursor: true
-  }, cliProgress.Presets.shades_classic);
+  const frameProgressBar = new cliProgress.SingleBar(
+    {
+      format:
+        "Processing frames [{bar}] {percentage}% | {value}/{total} frames",
+      barCompleteChar: "\u2588",
+      barIncompleteChar: "\u2591",
+      hideCursor: true,
+    },
+    cliProgress.Presets.shades_classic
+  );
 
   frameProgressBar.start(frameFiles.length, 0);
 
   const frameProcessingPromises = frameFiles.map((frameFile, frameIndex) =>
-    limitConcurrency(() => processFrameData(path.join(frameDir, frameFile), frameIndex, animationData, frameWidth)
-      .then(() => frameProgressBar.increment()))
+    limitConcurrency(() =>
+      processFrameData(
+        path.join(frameDir, frameFile),
+        frameIndex,
+        animationData,
+        frameWidth
+      ).then(() => frameProgressBar.increment())
+    )
   );
 
   await Promise.all(frameProcessingPromises);
@@ -186,12 +228,21 @@ async function processVideoFrames(frameDir, maxConcurrentFrames, frameWidth) {
  * @param {number} frameWidth - Width of the frame.
  * @returns {Promise<void>} - Resolves when processing is complete.
  */
-async function processFrameData(frameFilePath, frameIndex, animationData, frameWidth) {
-  const { data } = await sharp(frameFilePath).raw().toBuffer({ resolveWithObject: true });
+async function processFrameData(
+  frameFilePath,
+  frameIndex,
+  animationData,
+  frameWidth
+) {
+  const { data } = await sharp(frameFilePath)
+    .raw()
+    .toBuffer({ resolveWithObject: true });
   let pixelIndex = 0;
 
   for (let i = 0; i < data.length; i += 3) {
-    const colorHex = `${data[i].toString(16).padStart(2, '0')}${data[i + 1].toString(16).padStart(2, '0')}${data[i + 2].toString(16).padStart(2, '0')}`;
+    const colorHex = `${data[i].toString(16).padStart(2, "0")}${data[i + 1]
+      .toString(16)
+      .padStart(2, "0")}${data[i + 2].toString(16).padStart(2, "0")}`;
     const y = Math.floor(pixelIndex / frameWidth);
     const x = pixelIndex % frameWidth;
     animationData.addFrameColor(frameIndex, x, y, colorHex);
@@ -215,12 +266,13 @@ function createLinearGradient(colorArray, widthPerColor) {
     return acc;
   }, []);
 
-  const totalWidth = mergedColors.reduce((sum, item) => sum + item.count, 0) * widthPerColor;
+  const totalWidth =
+    mergedColors.reduce((sum, item) => sum + item.count, 0) * widthPerColor;
 
   let cumulativeWidth = 0;
-  let stops; 
+  let stops;
   if (mergedColors.length === 1) {
-    const color = '#' + mergedColors[0].color;
+    const color = "#" + mergedColors[0].color;
     stops = [color, color];
   } else {
     stops = mergedColors.map(({ color, count }) => {
@@ -233,7 +285,7 @@ function createLinearGradient(colorArray, widthPerColor) {
     });
   }
 
-  return `linear-gradient(90deg,${stops.join(',')})`;
+  return `linear-gradient(90deg,${stops.join(",")})`;
 }
 
 /**
@@ -242,7 +294,11 @@ function createLinearGradient(colorArray, widthPerColor) {
  * @returns {string} - Minimized hexadecimal color string.
  */
 function minimizeHexColor(hexColor) {
-  return (hexColor[0] === hexColor[1] && hexColor[2] === hexColor[3] && hexColor[4] === hexColor[5]) ? hexColor[0] + hexColor[2] + hexColor[4] : hexColor;
+  return hexColor[0] === hexColor[1] &&
+    hexColor[2] === hexColor[3] &&
+    hexColor[4] === hexColor[5]
+    ? hexColor[0] + hexColor[2] + hexColor[4]
+    : hexColor;
 }
 
 /**
@@ -251,10 +307,8 @@ function minimizeHexColor(hexColor) {
  * @returns {string} - Minimized percentage.
  */
 function asPercent(pcnt) {
-  return pcnt == 0 ? pcnt : `${pcnt}%`
+  return pcnt == 0 ? pcnt : `${pcnt}%`;
 }
-
-
 
 /**
  * Generate an HTML file with the animation and save it to a specified path.
@@ -265,52 +319,60 @@ function asPercent(pcnt) {
  * @param {string} outputHTMLPath - Path to save the generated HTML file.
  * @returns {Promise<void>} - Resolves when HTML generation is complete.
  */
-async function createHTML(animationData, width, height, duration, outputHTMLPath) {
-  console.log('Generating HTML... (This can take a while)')
+async function createHTML(
+  animationData,
+  width,
+  height,
+  duration,
+  outputHTMLPath
+) {
+  console.log("Generating HTML... (This can take a while)");
   try {
-    const templateContent = fs.readFileSync('./src/template.html', 'utf-8');
+    const templateContent = fs.readFileSync("./src/template.html", "utf-8");
     const generatedCSS = animationData.generateCSS(width, height, duration);
-    fs.writeFileSync(outputHTMLPath, templateContent.replace('__CSS__', generatedCSS));
+    fs.writeFileSync(
+      outputHTMLPath,
+      templateContent.replace("__CSS__", generatedCSS)
+    );
   } catch (error) {
-    console.error('Error generating HTML:', error.message);
+    console.error("Error generating HTML:", error.message);
   }
 }
 
 // Parse CLI arguments
 const argv = yargs(hideBin(process.argv))
-  .option('input', {
-    alias: 'i',
-    description: 'Path to input video or image folder',
-    type: 'string',
+  .option("input", {
+    alias: "i",
+    description: "Path to input video or image folder",
+    type: "string",
     demandOption: true,
   })
-  .option('output', {
-    alias: 'o',
-    description: 'Path to output HTML file',
-    type: 'string',
-    default: './output.html',
+  .option("output", {
+    alias: "o",
+    description: "Path to output HTML file",
+    type: "string",
+    default: "./output.html",
   })
-  .option('tempDir', {
-    alias: 't',
-    description: 'Temporary directory for frames',
-    type: 'string',
-    default: './tempFrames',
+  .option("tempDir", {
+    alias: "t",
+    description: "Temporary directory for frames",
+    type: "string",
+    default: "./tempFrames",
   })
-  .option('concurrentFrames', {
-    alias: 'c',
-    description: 'Max concurrent frame processing tasks',
-    type: 'number',
+  .option("concurrentFrames", {
+    alias: "c",
+    description: "Max concurrent frame processing tasks",
+    type: "number",
     default: 5,
   })
-  .option('frameRate', {
-    alias: 'f',
-    description: 'Frame rate for processing',
-    type: 'number',
+  .option("frameRate", {
+    alias: "f",
+    description: "Frame rate for processing",
+    type: "number",
     default: 30,
   })
   .help()
-  .alias('help', 'h')
-  .argv;
+  .alias("help", "h").argv;
 
 // Execute main function with CLI arguments
 main({
