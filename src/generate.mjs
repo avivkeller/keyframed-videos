@@ -130,7 +130,7 @@ class AnimationData {
       lastFrameString = frameString;
       const backgroundImages = frame.map(colors => createLinearGradient(colors, 1)).join(',');
       
-      return `${percentage}%{background-position:var(--row-pos);background-image:${backgroundImages};}`;
+      return `${percentage}%{background-image:${backgroundImages};background-position:var(--row-pos)}`;
     });    
 
     return `:root {--row-pos:${rowPositions.join(',')};}
@@ -141,7 +141,7 @@ class AnimationData {
         background-repeat: no-repeat;
         background-size: ${rowSizes.join(', ')};
       }
-      @keyframes animation-frames {${keyframes.join('')}}`;
+      @keyframes animation-frames{${keyframes.join('')}}`;
   }
 }
 
@@ -220,14 +220,22 @@ function createLinearGradient(colorArray, widthPerColor) {
   const totalWidth = mergedColors.reduce((sum, item) => sum + item.count, 0) * widthPerColor;
 
   let cumulativeWidth = 0;
-  const stops = mergedColors.map(({ color, count }) => {
-    const startPercentage = (cumulativeWidth / totalWidth) * 100;
-    cumulativeWidth += count * widthPerColor;
-    const endPercentage = (cumulativeWidth / totalWidth) * 100;
-    return `#${color} ${asPercent(startPercentage)},#${color} ${asPercent(endPercentage)}`;
-  });
+  let stops; 
+  if (mergedColors.length === 1) {
+    const color = '#' + mergedColors[0].color;
+    stops = [color, color];
+  } else {
+    stops = mergedColors.map(({ color, count }) => {
+      const startPercentage = (cumulativeWidth / totalWidth) * 100;
+      cumulativeWidth += count * widthPerColor;
+      const endPercentage = (cumulativeWidth / totalWidth) * 100;
+      let code = `#${color} ${asPercent(startPercentage)},#${color}`;
+      if (endPercentage !== 100) code += ` ${asPercent(endPercentage)}`;
+      return code;
+    });
+  }
 
-  return `linear-gradient(to right,${stops.join(',')})`;
+  return `linear-gradient(90deg,${stops.join(',')})`;
 }
 
 /**
