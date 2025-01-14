@@ -35,7 +35,7 @@ Before you can run this project, make sure you have the following installed:
 3. Run the script to generate the CSS animation:
 
    ```bash
-   node script.js
+   node src/generate.mjs > output.html
    ```
 
    - The script will process the video, extract frames, generate gradients, and create a CSS animation based on the video’s color data.
