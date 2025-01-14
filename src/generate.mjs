@@ -5,7 +5,7 @@ import pLimit from 'p-limit';
 import path from 'path';
 
 // Configuration Constants
-const videoPath = './output.mp4'; // Path to your MP4 file
+const videoPath = './my_video.mp4'; // Path to your MP4 file
 const tempDir = './tempFrames'; // Directory to store frames temporarily
 const maxConcurrentProcesses = 5; // Max concurrent processes for frame processing
 
