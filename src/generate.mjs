@@ -141,7 +141,7 @@ class AnimationData {
         width: ${animationWidth}px;
         animation: animation-frames ${animationDuration}s infinite;
         background-repeat: no-repeat;
-        background-size: ${rowSizes.join(', ')};
+        background-size: ${rowSizes.join(',')};
       }
       @keyframes animation-frames{${keyframes.join('')}}`;
   }
@@ -227,7 +227,7 @@ function createLinearGradient(colorArray, widthPerColor) {
       const startPercentage = (cumulativeWidth / totalWidth) * 100;
       cumulativeWidth += count * widthPerColor;
       const endPercentage = (cumulativeWidth / totalWidth) * 100;
-      let code = `#${color} ${asPercent(startPercentage)},#${color}`;
+      let code = `#${color} ${asPercent(startPercentage)}`;
       if (endPercentage !== 100) code += ` ${asPercent(endPercentage)}`;
       return code;
     });
