@@ -28,9 +28,7 @@ async function main({
     return;
   }
 
-  fs.existsSync(tempFrameDir) || fs.mkdirSync(tempFrameDir);
-
-  let videoWidth, videoHeight, videoDuration;
+  let videoWidth, videoHeight, videoDuration, deleteAfter = false;
 
   if (fs.lstatSync(inputPath).isDirectory()) {
     const imageFiles = fs.readdirSync(inputPath).filter(file => file.endsWith('.png'));
@@ -43,7 +41,10 @@ async function main({
     videoWidth = metadata.width;
     videoHeight = metadata.height;
     videoDuration = imageFiles.length / frameRate;
+    tempFrameDir = inputPath;
   } else {
+    deleteAfter = true;
+    fs.existsSync(tempFrameDir) || fs.mkdirSync(tempFrameDir);
     ({ duration: videoDuration, width: videoWidth, height: videoHeight } = await getVideoDetails(inputPath));
     await extractVideoFrames(inputPath, tempFrameDir);
   }
@@ -51,6 +52,7 @@ async function main({
   const animationData = await processVideoFrames(tempFrameDir, maxConcurrentFrames, videoWidth, videoHeight);
   await createHTML(animationData, videoWidth, videoHeight, videoDuration, outputHTMLPath);
   console.log('Processing completed.');
+  deleteAfter && fs.rmSync(tempFrameDir, { recursive: true });
 }
 
 /**
@@ -150,10 +152,9 @@ class AnimationData {
  * @param {string} frameDir - Directory containing frame images.
  * @param {number} maxConcurrentFrames - Maximum number of concurrent processing tasks.
  * @param {number} frameWidth - Width of each frame.
- * @param {number} frameHeight - Height of each frame.
  * @returns {Promise<AnimationData>} - Resolves with animation data.
  */
-async function processVideoFrames(frameDir, maxConcurrentFrames, frameWidth, frameHeight) {
+async function processVideoFrames(frameDir, maxConcurrentFrames, frameWidth) {
   const animationData = new AnimationData();
   const limitConcurrency = pLimit(maxConcurrentFrames);
   const frameFiles = fs.readdirSync(frameDir).filter(file => file.endsWith('.png'));
@@ -168,7 +169,7 @@ async function processVideoFrames(frameDir, maxConcurrentFrames, frameWidth, fra
   frameProgressBar.start(frameFiles.length, 0);
 
   const frameProcessingPromises = frameFiles.map((frameFile, frameIndex) =>
-    limitConcurrency(() => processFrameData(path.join(frameDir, frameFile), frameIndex, animationData, frameWidth, frameHeight)
+    limitConcurrency(() => processFrameData(path.join(frameDir, frameFile), frameIndex, animationData, frameWidth)
       .then(() => frameProgressBar.increment()))
   );
 
@@ -183,10 +184,9 @@ async function processVideoFrames(frameDir, maxConcurrentFrames, frameWidth, fra
  * @param {number} frameIndex - Index of the frame.
  * @param {AnimationData} animationData - Animation data instance to store extracted color data.
  * @param {number} frameWidth - Width of the frame.
- * @param {number} frameHeight - Height of the frame.
  * @returns {Promise<void>} - Resolves when processing is complete.
  */
-async function processFrameData(frameFilePath, frameIndex, animationData, frameWidth, frameHeight) {
+async function processFrameData(frameFilePath, frameIndex, animationData, frameWidth) {
   const { data } = await sharp(frameFilePath).raw().toBuffer({ resolveWithObject: true });
   let pixelIndex = 0;
 
@@ -197,8 +197,6 @@ async function processFrameData(frameFilePath, frameIndex, animationData, frameW
     animationData.addFrameColor(frameIndex, x, y, colorHex);
     pixelIndex++;
   }
-
-  fs.unlinkSync(frameFilePath);
 }
 
 /**
