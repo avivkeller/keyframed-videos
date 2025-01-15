@@ -14,7 +14,8 @@ import cliProgress from "cli-progress";
  * @param {string} [config.outputHTMLPath='./output.html'] - Path to save the generated HTML file.
  * @param {string} [config.tempFrameDir='./tempFrames'] - Directory to store temporary frames.
  * @param {number} [config.maxConcurrentFrames=5] - Maximum concurrent frame processing tasks.
- * @param {number} [config.frameRate=30] - Frame rate for processing video or images.
+ * @param {number} [config.frameRate=30] - Frame rate for processing images. Does not apply to videos.
+ * @param {number} [config.precision=-1] - How precise the CSS percents should be. -1 for unlimited.
  */
 async function main({
   inputPath,
@@ -22,6 +23,7 @@ async function main({
   tempFrameDir = "./tempFrames",
   maxConcurrentFrames = 5,
   frameRate = 30,
+  precision = -1,
 }) {
   if (!fs.existsSync(inputPath)) {
     console.error("Input path does not exist.");
@@ -69,7 +71,8 @@ async function main({
     videoWidth,
     videoHeight,
     videoDuration,
-    outputHTMLPath
+    outputHTMLPath,
+    precision
   );
   console.log("Processing completed.");
   deleteAfter && fs.rmSync(tempFrameDir, { recursive: true });
@@ -138,9 +141,15 @@ class AnimationData {
    * @param {number} animationWidth - Width of the animation.
    * @param {number} animationHeight - Height of the animation.
    * @param {number} animationDuration - Duration of the animation in seconds.
+   * @param {number} [precision=-1] - How many decimal places to use in percents, -1 for unlimited
    * @returns {string} - Generated CSS string.
    */
-  generateCSS(animationWidth, animationHeight, animationDuration) {
+  generateCSS(
+    animationWidth,
+    animationHeight,
+    animationDuration,
+    precision = -1
+  ) {
     const rowPositions = Array.from(
       { length: animationHeight },
       (_, i) => `0 ${i}px`
@@ -150,20 +159,42 @@ class AnimationData {
       () => `${animationWidth}px 1px`
     );
 
+    const keyframeProgressBar = new cliProgress.SingleBar(
+      {
+        format:
+          "Generating keyframes [{bar}] {percentage}% | {value}/{total} keyframes",
+        barCompleteChar: "\u2588",
+        barIncompleteChar: "\u2591",
+        hideCursor: true,
+      },
+      cliProgress.Presets.shades_classic
+    );
+
+    keyframeProgressBar.start(this.frames.length);
+
     let lastFrameString = "";
     const keyframes = this.frames.map((frame, index) => {
-      const percentage = (index / this.frames.length) * 100;
+      keyframeProgressBar.increment(1);
+      let percentage = (index / this.frames.length) * 100;
+      if (precision >= 0) {
+        percentage = percentage.toFixed(precision);
+        const next = ((index + 1) / this.frames.length) * 100;
+        if (next.toFixed(precision) === percentage) return "";
+        percentage = parseFloat(percentage);
+      }
       let frameString = frame.join("");
 
       if (frameString === lastFrameString) return "";
 
       lastFrameString = frameString;
       const backgroundImages = frame
-        .map((colors) => createLinearGradient(colors, 1))
+        .map((colors) => createLinearGradient(colors, 1, precision))
         .join(",");
 
       return `${percentage}%{--a:${backgroundImages}}`;
     });
+
+    keyframeProgressBar.stop();
 
     return (
       `.animation{height:${animationHeight}px;width:${animationWidth}px;` +
@@ -254,9 +285,10 @@ async function processFrameData(
  * Create a linear gradient string from an array of colors.
  * @param {string[]} colorArray - Array of hexadecimal color values.
  * @param {number} widthPerColor - Width of each color in the gradient.
+ * @param {number} percision - How precise the percents should be
  * @returns {string} - CSS linear gradient string.
  */
-function createLinearGradient(colorArray, widthPerColor) {
+function createLinearGradient(colorArray, widthPerColor, percision = -1) {
   const mergedColors = colorArray.reduce((acc, color, i) => {
     if (i === 0 || color !== acc[acc.length - 1].color) {
       acc.push({ color, count: 1 });
@@ -276,9 +308,13 @@ function createLinearGradient(colorArray, widthPerColor) {
     stops = [color, color];
   } else {
     stops = mergedColors.map(({ color, count }) => {
-      const startPercentage = (cumulativeWidth / totalWidth) * 100;
+      let startPercentage = (cumulativeWidth / totalWidth) * 100;
+      if (percision >= 0)
+        startPercentage = parseFloat(startPercentage.toFixed(percision));
       cumulativeWidth += count * widthPerColor;
-      const endPercentage = (cumulativeWidth / totalWidth) * 100;
+      let endPercentage = (cumulativeWidth / totalWidth) * 100;
+      if (percision >= 0)
+        endPercentage = parseFloat(endPercentage.toFixed(percision));
       let code = `#${color} ${asPercent(startPercentage)}`;
       if (endPercentage !== 100) code += ` ${asPercent(endPercentage)}`;
       return code;
@@ -317,6 +353,7 @@ function asPercent(pcnt) {
  * @param {number} height - Height of the animation.
  * @param {number} duration - Duration of the animation in seconds.
  * @param {string} outputHTMLPath - Path to save the generated HTML file.
+ * @param {number} [precision=-1] - How many decimal places to use in the CSS
  * @returns {Promise<void>} - Resolves when HTML generation is complete.
  */
 async function createHTML(
@@ -324,12 +361,18 @@ async function createHTML(
   width,
   height,
   duration,
-  outputHTMLPath
+  outputHTMLPath,
+  precision = -1
 ) {
-  console.log("Generating HTML... (This can take a while)");
+  console.log("Generating HTML...");
   try {
     const templateContent = fs.readFileSync("./src/template.html", "utf-8");
-    const generatedCSS = animationData.generateCSS(width, height, duration);
+    const generatedCSS = animationData.generateCSS(
+      width,
+      height,
+      duration,
+      precision
+    );
     fs.writeFileSync(
       outputHTMLPath,
       templateContent.replace("__CSS__", generatedCSS)
@@ -371,6 +414,13 @@ const argv = yargs(hideBin(process.argv))
     type: "number",
     default: 30,
   })
+  .option("precision", {
+    alias: "p",
+    description:
+      "How precise the CSS percents should be. -1 for unlimited (Default)",
+    type: "number",
+    default: -1,
+  })
   .help()
   .alias("help", "h").argv;
 
@@ -381,4 +431,5 @@ main({
   tempFrameDir: argv.tempDir,
   maxConcurrentFrames: argv.concurrentFrames,
   frameRate: argv.frameRate,
+  precision: argv.precision,
 });
