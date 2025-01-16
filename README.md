@@ -8,7 +8,6 @@ Before you can run this project, make sure you have the following installed:
 
 - **Node.js**: This project requires Node.js.
 - **FFmpeg**: FFmpeg is used to extract frames from the video.
-- **Sharp**: Used for processing image buffers in each frame.
 
 ## Installation
 
