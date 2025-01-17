@@ -10,22 +10,22 @@ import cliProgress from "cli-progress";
 /**
  * Main function to process video or image folder and generate animated HTML.
  * @param {Object} config - Configuration options.
- * @param {string} config.inputPath - Path to the input video or image folder.
- * @param {string} [config.outputHTMLPath='./output.html'] - Path to save the generated HTML file.
+ * @param {string} config.input - Path to the input video or image folder.
+ * @param {string} [config.output='./output.html'] - Path to save the generated HTML file.
  * @param {string} [config.tempFrameDir='./tempFrames'] - Directory to store temporary frames.
  * @param {number} [config.maxConcurrentFrames=5] - Maximum concurrent frame processing tasks.
  * @param {number} [config.frameRate=30] - Frame rate for processing images. Does not apply to videos.
  * @param {number} [config.precision=-1] - How precise the CSS percents should be. -1 for unlimited.
  */
 async function main({
-  inputPath,
-  outputHTMLPath = "./output.html",
+  input,
+  output = "./output.html",
   tempFrameDir = "./tempFrames",
   maxConcurrentFrames = 5,
   frameRate = 30,
   precision = -1,
 }) {
-  if (!fs.existsSync(inputPath)) {
+  if (!fs.existsSync(input)) {
     console.error("Input path does not exist.");
     return;
   }
@@ -35,20 +35,20 @@ async function main({
     videoDuration,
     deleteAfter = false;
 
-  if (fs.lstatSync(inputPath).isDirectory()) {
+  if (fs.lstatSync(input).isDirectory()) {
     const imageFiles = fs
-      .readdirSync(inputPath)
+      .readdirSync(input)
       .filter((file) => file.endsWith(".png"));
     if (imageFiles.length === 0) {
       console.error("No PNG files found in the folder.");
       return;
     }
-    const sampleImage = path.join(inputPath, imageFiles[0]);
+    const sampleImage = path.join(input, imageFiles[0]);
     const metadata = await sharp(sampleImage).metadata();
     videoWidth = metadata.width;
     videoHeight = metadata.height;
     videoDuration = imageFiles.length / frameRate;
-    tempFrameDir = inputPath;
+    tempFrameDir = input;
   } else {
     deleteAfter = true;
     fs.existsSync(tempFrameDir) || fs.mkdirSync(tempFrameDir);
@@ -56,8 +56,8 @@ async function main({
       duration: videoDuration,
       width: videoWidth,
       height: videoHeight,
-    } = await getVideoDetails(inputPath));
-    await extractVideoFrames(inputPath, tempFrameDir);
+    } = await getVideoDetails(input));
+    await extractVideoFrames(input, tempFrameDir);
   }
 
   const animationData = await processVideoFrames(
@@ -71,7 +71,7 @@ async function main({
     videoWidth,
     videoHeight,
     videoDuration,
-    outputHTMLPath,
+    output,
     precision
   );
   console.log("Processing completed.");
@@ -352,7 +352,7 @@ function asPercent(pcnt) {
  * @param {number} width - Width of the animation.
  * @param {number} height - Height of the animation.
  * @param {number} duration - Duration of the animation in seconds.
- * @param {string} outputHTMLPath - Path to save the generated HTML file.
+ * @param {string} output - Path to save the generated HTML file.
  * @param {number} [precision=-1] - How many decimal places to use in the CSS
  * @returns {Promise<void>} - Resolves when HTML generation is complete.
  */
@@ -361,25 +361,17 @@ async function createHTML(
   width,
   height,
   duration,
-  outputHTMLPath,
+  output,
   precision = -1
 ) {
-  console.log("Generating HTML...");
-  try {
-    const templateContent = fs.readFileSync("./src/template.html", "utf-8");
-    const generatedCSS = animationData.generateCSS(
-      width,
-      height,
-      duration,
-      precision
-    );
-    fs.writeFileSync(
-      outputHTMLPath,
-      templateContent.replace("__CSS__", generatedCSS)
-    );
-  } catch (error) {
-    console.error("Error generating HTML:", error.message);
-  }
+  const templateContent = fs.readFileSync("./src/template.html", "utf-8");
+  const generatedCSS = animationData.generateCSS(
+    width,
+    height,
+    duration,
+    precision
+  );
+  fs.writeFileSync(output, templateContent.replace("__CSS__", generatedCSS));
 }
 
 // Parse CLI arguments
@@ -426,8 +418,8 @@ const argv = yargs(hideBin(process.argv))
 
 // Execute main function with CLI arguments
 main({
-  inputPath: argv.input,
-  outputHTMLPath: argv.output,
+  input: argv.input,
+  output: argv.output,
   tempFrameDir: argv.tempDir,
   maxConcurrentFrames: argv.concurrentFrames,
   frameRate: argv.frameRate,

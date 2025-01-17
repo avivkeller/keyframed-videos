@@ -35,7 +35,7 @@ Before you can run this project, make sure you have the following installed:
 
 ```console
 $ node src/generate.mjs
-   Options:
+Options:
       --version           Show version number                          [boolean]
   -i, --input             Path to input video or image folder[string] [required]
   -o, --output            Path to output HTML file
@@ -45,6 +45,8 @@ $ node src/generate.mjs
   -c, --concurrentFrames  Max concurrent frame processing tasks
                                                            [number] [default: 5]
   -f, --frameRate         Frame rate for processing       [number] [default: 30]
+  -p, --precision         How precise the CSS percents should be. -1 for unlimit
+                          ed (Default)                    [number] [default: -1]
   -h, --help              Show help                                    [boolean]
 ```
 
